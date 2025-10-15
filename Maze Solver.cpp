@@ -1,108 +1,140 @@
 #include <iostream>
 #include <queue>
-#include <stack>
 #include <vector>
-#include <utility>
+#include <stack>
 using namespace std;
 
-const int N = 5; 
-char maze[N][N] = {
-    {'S', '.', '.', '#', '.'},
-    {'#', '#', '.', '#', '.'},
-    {'.', '.', '.', '.', '.'},
-    {'.', '#', '#', '#', '.'},
-    {'.', '.', '.', '#', 'E'}
+int dx[] = {-1, 1, 0, 0};
+int dy[] = {0, 0, -1, 1};
+
+struct Cell {
+    int x, y;
+    vector<pair<int, int>> path; 
 };
 
-bool visited[N][N];
-pair<int,int> parent[N][N]; 
-int dx[4] = {-1, 1, 0, 0}; 
-int dy[4] = {0, 0, -1, 1};
-
-
-bool isValid(int x, int y) {
-    return (x >= 0 && x < N && y >= 0 && y < N && maze[x][y] != '#' && !visited[x][y]);
+bool isValid(int x, int y, int n, int m, vector<vector<int>> &maze, vector<vector<bool>> &visited) {
+    return (x >= 0 && x < n && y >= 0 && y < m && maze[x][y] == 0 && !visited[x][y]);
 }
 
-bool bfs(int sx, int sy, int ex, int ey) {
-    queue<pair<int,int>> q;
-    q.push({sx, sy});
-    visited[sx][sy] = true;
-    parent[sx][sy] = {-1, -1};
+void bfsSolver(vector<vector<int>> &maze, pair<int, int> start, pair<int, int> end) {
+    int n = maze.size();
+    int m = maze[0].size();
+    vector<vector<bool>> visited(n, vector<bool>(m, false));
+
+    queue<Cell> q;
+    q.push({start.first, start.second, {{start.first, start.second}}});
+    visited[start.first][start.second] = true;
+
+    cout << "\nRunning BFS to find the shortest path...\n";
 
     while (!q.empty()) {
-        auto [x, y] = q.front(); q.pop();
+        Cell current = q.front();
+        q.pop();
 
-        if (x == ex && y == ey) return true;
+        int x = current.x, y = current.y;
 
+        if (x == end.first && y == end.second) {
+            cout << "\n✅ Shortest Path Found:\n";
+            for (auto &p : current.path)
+                cout << "(" << p.first << "," << p.second << ") ";
+            cout << "\nPath length: " << current.path.size() << endl;
+            return;
+        }
+
+        
         for (int i = 0; i < 4; i++) {
-            int nx = x + dx[i], ny = y + dy[i];
-            if (isValid(nx, ny)) {
+            int nx = x + dx[i];
+            int ny = y + dy[i];
+            if (isValid(nx, ny, n, m, maze, visited)) {
                 visited[nx][ny] = true;
-                parent[nx][ny] = {x, y};
-                q.push({nx, ny});
+                auto newPath = current.path;
+                newPath.push_back({nx, ny});
+                q.push({nx, ny, newPath});
             }
         }
     }
-    return false;
+
+    cout << "\n❌ No path found using BFS.\n";
 }
 
-bool dfs(int x, int y, int ex, int ey) {
-    if (x == ex && y == ey) return true;
-    visited[x][y] = true;
+void dfsHelper(vector<vector<int>> &maze, int x, int y, pair<int, int> end, vector<vector<bool>> &visited, vector<pair<int, int>> &path, vector<vector<pair<int, int>>> &allPaths) {
+    if (x == end.first && y == end.second) {
+        allPaths.push_back(path);
+        return;
+    }
 
     for (int i = 0; i < 4; i++) {
-        int nx = x + dx[i], ny = y + dy[i];
-        if (isValid(nx, ny)) {
-            parent[nx][ny] = {x, y};
-            if (dfs(nx, ny, ex, ey)) return true;
+        int nx = x + dx[i];
+        int ny = y + dy[i];
+        if (isValid(nx, ny, maze.size(), maze[0].size(), maze, visited)) {
+            visited[nx][ny] = true;
+            path.push_back({nx, ny});
+            dfsHelper(maze, nx, ny, end, visited, path, allPaths);
+            path.pop_back();
+            visited[nx][ny] = false;
         }
     }
-    return false;
 }
 
-void printPath(int ex, int ey) {
-    vector<pair<int,int>> path;
-    for (pair<int,int> at = {ex, ey}; at.first != -1; at = parent[at.first][at.second])
-        path.push_back(at);
-    reverse(path.begin(), path.end());
+void dfsSolver(vector<vector<int>> &maze, pair<int, int> start, pair<int, int> end) {
+    int n = maze.size(), m = maze[0].size();
+    vector<vector<bool>> visited(n, vector<bool>(m, false));
+    vector<pair<int, int>> path;
+    vector<vector<pair<int, int>>> allPaths;
 
-    cout << "\nPath found: ";
-    for (auto [x, y] : path) cout << "(" << x << "," << y << ") ";
-    cout << "\n";
+    visited[start.first][start.second] = true;
+    path.push_back(start);
+    dfsHelper(maze, start.first, start.second, end, visited, path, allPaths);
 
-    
-    for (auto [x, y] : path) {
-        if (maze[x][y] != 'S' && maze[x][y] != 'E')
-            maze[x][y] = '*';
+    if (allPaths.empty()) {
+        cout << "\n❌ No path found using DFS.\n";
+        return;
     }
 
-    cout << "\nMaze with Path:\n";
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) cout << maze[i][j] << " ";
-        cout << "\n";
+    cout << "\n✅ Paths found using DFS: " << allPaths.size() << "\n";
+    int i = 1;
+    for (auto &p : allPaths) {
+        cout << "Path " << i++ << ": ";
+        for (auto &pt : p)
+            cout << "(" << pt.first << "," << pt.second << ") ";
+        cout << endl;
     }
 }
 
 int main() {
-    int sx, sy, ex, ey;
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) {
-            if (maze[i][j] == 'S') { sx = i; sy = j; }
-            if (maze[i][j] == 'E') { ex = i; ey = j; }
-        }
+    int n, m;
+    cout << "Enter maze size (rows cols): ";
+    cin >> n >> m;
+
+    vector<vector<int>> maze(n, vector<int>(m));
+    cout << "Enter maze grid (0 for open path, 1 for wall):\n";
+    for (int i = 0; i < n; i++)
+        for (int j = 0; j < m; j++)
+            cin >> maze[i][j];
+
+    pair<int, int> start, end;
+    cout << "Enter start position (row col): ";
+    cin >> start.first >> start.second;
+    cout << "Enter end position (row col): ";
+    cin >> end.first >> end.second;
+
+    cout << "\nMaze Representation:\n";
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < m; j++)
+            cout << maze[i][j] << " ";
+        cout << endl;
     }
 
-    cout << "Maze Solver using BFS & DFS\n";
-    cout << "Choose algorithm:\n1. BFS (Shortest Path)\n2. DFS (Exploration)\nEnter choice: ";
-    int choice; cin >> choice;
+    int choice;
+    cout << "\nChoose algorithm:\n1. BFS (Shortest Path)\n2. DFS (All Paths)\nEnter your choice: ";
+    cin >> choice;
 
-    bool found = false;
-    if (choice == 1) found = bfs(sx, sy, ex, ey);
-    else if (choice == 2) found = dfs(sx, sy, ex, ey);
-
-    if (found) printPath(ex, ey);
-    else cout << "No path found!\n";
+    if (choice == 1)
+        bfsSolver(maze, start, end);
+    else if (choice == 2)
+        dfsSolver(maze, start, end);
+    else
+        cout << "Invalid choice!" << endl;
 
     return 0;
 }
